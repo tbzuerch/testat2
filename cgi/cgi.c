@@ -152,10 +152,7 @@ static OSC_ERR QueryApp()
 		if (cgi.appState.bNewImageReady)
 		{
 			/* If there is a new image ready, request it from the application. */
-			err = OscIpcGetParam(cgi.ipcChan,
-					cgi.imgBuf,
-					GET_COLOR_IMG,
-					3*OSC_CAM_MAX_IMAGE_WIDTH*OSC_CAM_MAX_IMAGE_HEIGHT);
+			err = OscIpcGetParam(cgi.ipcChan, cgi.imgBuf, GET_COLOR_IMG, OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2);
 			if (err != SUCCESS)
 			{
 				OscLog(DEBUG, "CGI: Getting new image failed! (%d)\n", err);
@@ -164,9 +161,9 @@ static OSC_ERR QueryApp()
 
 			/* Write the image to the RAM file system where it can be picked
 			 * up by the webserver on request from the browser. */
-			pic.width = OSC_CAM_MAX_IMAGE_WIDTH;
-			pic.height = OSC_CAM_MAX_IMAGE_HEIGHT;
-			pic.type = OSC_PICTURE_BGR_24;
+			pic.width = OSC_CAM_MAX_IMAGE_WIDTH/2;
+			pic.height = OSC_CAM_MAX_IMAGE_HEIGHT/2;
+			pic.type = OSC_PICTURE_GREYSCALE;
 			pic.data = (void*)cgi.imgBuf;
 
 			return OscBmpWrite(&pic, IMG_FN);
@@ -176,7 +173,7 @@ static OSC_ERR QueryApp()
 		if (cgi.appState.bNewImageReady)
 		{
 			/* If there is a new image ready, request it from the application. */
-			err = OscIpcGetParam(cgi.ipcChan, cgi.imgBuf, GET_RAW_IMG, OSC_CAM_MAX_IMAGE_WIDTH*OSC_CAM_MAX_IMAGE_HEIGHT);
+			err = OscIpcGetParam(cgi.ipcChan, cgi.imgBuf, GET_RAW_IMG, OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2);
 			if (err != SUCCESS)
 			{
 				OscLog(DEBUG, "CGI: Getting new image failed! (%d)\n", err);
@@ -184,8 +181,8 @@ static OSC_ERR QueryApp()
 			}
 
 			/* Write the image to the RAM file system where it can be picked up by the webserver on request from the browser. */
-			pic.width = OSC_CAM_MAX_IMAGE_WIDTH;
-			pic.height = OSC_CAM_MAX_IMAGE_HEIGHT;
+			pic.width = OSC_CAM_MAX_IMAGE_WIDTH/2;
+			pic.height = OSC_CAM_MAX_IMAGE_HEIGHT/2;
 			pic.type = OSC_PICTURE_GREYSCALE;
 			pic.data = (void*)cgi.imgBuf;
 

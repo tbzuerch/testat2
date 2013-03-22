@@ -136,7 +136,8 @@ Msg const *MainState_CaptureColor(MainState *me, Msg *msg)
 		return 0;
 	case FRAMEPAR_EVT:
 		/* Process the image. */
-		ProcessFrame(data.pCurRawImg);
+		OscVisDebayerGreyscaleHalfSize( data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, ROW_BGBG, data.u8TempImage);
+		ProcessFrame(data.u8TempImage);
 
 		/* Timestamp the capture of the image. */
 		data.ipc.state.imageTimeStamp = OscSupCycGet();
@@ -206,7 +207,8 @@ Msg const *MainState_CaptureRaw(MainState *me, Msg *msg)
 		return 0;
 	case IPC_GET_RAW_IMG_EVT:
 		/* Write out the raw image to the address space of the CGI. */
-		memcpy(data.ipc.req.pAddr, data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH*OSC_CAM_MAX_IMAGE_HEIGHT);
+		OscVisDebayerGreyscaleHalfSize( data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, ROW_BGBG, data.ipc.req.pAddr);
+		//memcpy(data.ipc.req.pAddr, data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH*OSC_CAM_MAX_IMAGE_HEIGHT);
 
 		data.ipc.state.bNewImageReady = FALSE;
 

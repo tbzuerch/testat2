@@ -57,8 +57,10 @@ struct TEMPLATE
 {
 	/*! @brief The frame buffers for the frame capture device driver.*/
 	uint8 u8FrameBuffers[NR_FRAME_BUFFERS][OSC_CAM_MAX_IMAGE_HEIGHT*OSC_CAM_MAX_IMAGE_WIDTH];
-	/*! @brief A buffer to hold the resulting color image. */
-	uint8 u8ResultImage[3*OSC_CAM_MAX_IMAGE_WIDTH*OSC_CAM_MAX_IMAGE_HEIGHT];
+	/*! @brief A buffer to hold the resulting grey image. */
+	uint8 u8ResultImage[OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2];
+	/*! @brief A buffer to hold the temporary image. */
+	uint8 u8TempImage[OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2];
 	
 	/*! @brief Handle to the framework instance. */
 	void *hFramework;

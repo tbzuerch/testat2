@@ -10,29 +10,22 @@
 /* Definitions specific to this application. Also includes the Oscar main header file. */
 #include "template.h"
 
-void ProcessFrame(uint8 *pRawImg)
+void ProcessFrame(uint8 *pInputImg)
 {
-	OSC_ERR err;
-	enum EnBayerOrder enBayerOrder;
+	int c, r;
 	
-	err = OscCamGetBayerOrder(&enBayerOrder, 0, 0);
-	if (err != SUCCESS)
+	for(r = 0; r < sizeof(data.u8ResultImage); r+= OSC_CAM_MAX_IMAGE_WIDTH/2)
 	{
-		OscLog(ERROR, "%s: Error getting bayer order! (%d)\n", __func__, err);
-		return;
+		for(c = 0; c < OSC_CAM_MAX_IMAGE_WIDTH/2; c++)
+		{
+			data.u8ResultImage[r+c] = 255-pInputImg[r+c];
+
+			/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+			/* |                                                                 */
+			/* |                    Add your code here                           */
+			/* |                                                                 */
+			/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+		}
 	}
-	
-	/* Use a framework function to debayer the image. */
-	err = OscVisDebayer(pRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, enBayerOrder, data.u8ResultImage);
-	if (err != SUCCESS)
-	{
-		OscLog(ERROR, "%s: Error debayering image! (%d)\n", __func__, err);
-		return;
-	}
-	
-	/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-	/* |                                                                 */
-	/* |                    Add your code here                           */
-	/* |                                                                 */
-	/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 }
