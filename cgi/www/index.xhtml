@@ -19,7 +19,9 @@
 		<script src="js/functions.js" />
 		<script type="text/javascript"><![CDATA[
 			var inputValues = {
-				exposureTime: 25,Threshold: 30,
+				exposureTime: 25,
+				Threshold: 30,
+				ImageType: "0"
 			};
 				
 			$(function () {
@@ -70,13 +72,7 @@
 				<span lang="en">Options</span>
 			</h3>
 			<p>
-				<span lang="de">Algorithmus anwenden</span>
-				<span lang="en">Apply algorithm</span>
-				<input name="DoShowThreshold" type="checkbox">				
-				</input>
-			</p>
-			<p>
-				<div class="input" name="Threshold" type="slider" value="0 255">
+				<div class="input" name="Threshold" type="slider" value="0 100">
 				<span lang="de">Schwellwert:     </span>
 				<span lang="en">Threshold:       </span>
 				</div>
@@ -85,8 +81,28 @@
 				<div class="input" name="exposureTime" type="slider" value="1 1000 log">
 				<span lang="de">Belichtungszeit:  </span>
 				<span lang="en">Exposure time:    </span>
-				</div> ms
+				</div> ms/10
 			</p>
+			
+			<h3>
+				<span lang="de">Optionen</span>
+				<span lang="en">Options</span>
+			</h3>
+			<p>
+				<div class="input" name="ImageType" type="radio" value="0">
+					<span lang="de">Sensorbild</span>
+					<span lang="en">Sensor image</span>
+				</div>				
+				<div class="input" name="ImageType" type="radio" value="1">
+					<span lang="de">Schwellwert Bild</span>
+					<span lang="en">Threshold image</span>
+				</div>
+				<div class="input" name="ImageType" type="radio" value="2">
+					<span lang="de">Hintergrund Bild</span>
+					<span lang="en">Background image</span>
+				</div>
+			</p>
+			
 		</div>
 		
 		<div id="info-box" class="big-box">
@@ -113,7 +129,7 @@
 				<p>
 					<span lang="de">Belichtungszeit:  </span>
 					<span lang="en">Exposure time:    </span>
-					<span id="exposureTime" /> ms
+					<span id="exposureTime" /> ms/10
 				</p>
 			</div>
 		</div>

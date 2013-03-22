@@ -25,9 +25,9 @@ struct CGI_TEMPLATE cgi;
 /*! @brief All potential arguments supplied to this CGI. */
 struct ARGUMENT args[] =
 {
-	{ "DoShowThreshold", BOOL_ARG, &cgi.args.bDoShowThreshold, &cgi.args.bDoShowThreshold_supplied },
 	{ "exposureTime", INT_ARG, &cgi.args.nExposureTime, &cgi.args.bExposureTime_supplied },
-	{ "Threshold", INT_ARG, &cgi.args.nThreshold, &cgi.args.bThreshold_supplied }
+	{ "Threshold", INT_ARG, &cgi.args.nThreshold, &cgi.args.bThreshold_supplied },
+	{ "ImageType", INT_ARG, &cgi.args.nImageType, &cgi.args.bImageType_supplied }
 };
 
 /*! @brief Strips whiltespace from the beginning and the end of a string and returns the new beginning of the string. Be advised, that the original string gets mangled! */
@@ -154,11 +154,11 @@ static OSC_ERR QueryApp()
 	case APP_OFF:
 		/* Algorithm is off, nothing else to do. */
 		break;
-	case APP_CAPTURE_COLOR:
+	case APP_CAPTURE_ON:
 		if (cgi.appState.bNewImageReady)
 		{
 			/* If there is a new image ready, request it from the application. */
-			err = OscIpcGetParam(cgi.ipcChan, cgi.imgBuf, GET_COLOR_IMG, OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2);
+			err = OscIpcGetParam(cgi.ipcChan, cgi.imgBuf, GET_NEW_IMG, OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2);
 			if (err != SUCCESS)
 			{
 				OscLog(DEBUG, "CGI: Getting new image failed! (%d)\n", err);
@@ -167,26 +167,6 @@ static OSC_ERR QueryApp()
 
 			/* Write the image to the RAM file system where it can be picked
 			 * up by the webserver on request from the browser. */
-			pic.width = OSC_CAM_MAX_IMAGE_WIDTH/2;
-			pic.height = OSC_CAM_MAX_IMAGE_HEIGHT/2;
-			pic.type = OSC_PICTURE_GREYSCALE;
-			pic.data = (void*)cgi.imgBuf;
-
-			return OscBmpWrite(&pic, IMG_FN);
-		}
-		break;
-	case APP_CAPTURE_RAW:
-		if (cgi.appState.bNewImageReady)
-		{
-			/* If there is a new image ready, request it from the application. */
-			err = OscIpcGetParam(cgi.ipcChan, cgi.imgBuf, GET_RAW_IMG, OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2);
-			if (err != SUCCESS)
-			{
-				OscLog(DEBUG, "CGI: Getting new image failed! (%d)\n", err);
-				return err;
-			}
-
-			/* Write the image to the RAM file system where it can be picked up by the webserver on request from the browser. */
 			pic.width = OSC_CAM_MAX_IMAGE_WIDTH/2;
 			pic.height = OSC_CAM_MAX_IMAGE_HEIGHT/2;
 			pic.type = OSC_PICTURE_GREYSCALE;
@@ -213,9 +193,9 @@ static OSC_ERR SetOptions()
 	OSC_ERR err;
 	struct ARGUMENT_DATA *pArgs = &cgi.args;
 
-	if (pArgs->bDoShowThreshold_supplied)
+	if (pArgs->bImageType_supplied)
 	{
-		err = OscIpcSetParam(cgi.ipcChan, &pArgs->bDoShowThreshold, SET_CAPTURE_MODE, sizeof(pArgs->bDoShowThreshold));
+		err = OscIpcSetParam(cgi.ipcChan, &pArgs->nImageType, SET_IMAGE_TYPE, sizeof(pArgs->nImageType));
 		if (err != SUCCESS)
 		{
 			OscLog(DEBUG, "CGI: Error setting option! (%d)\n", err);
@@ -263,6 +243,7 @@ static void FormCGIResponse()
 	printf("Stepcounter: %d\n", pAppState->nStepCounter);
 	printf("width: %d\n", OSC_CAM_MAX_IMAGE_WIDTH/2);
 	printf("height: %d\n", OSC_CAM_MAX_IMAGE_HEIGHT/2);
+	printf("ImageType: %u\n", pAppState->nImageType);
 
 	fflush(stdout);
 }

@@ -255,15 +255,17 @@ var outputValueHooks = {
 	}
 };
 
-function exchangeState(data, onLoad, onError) {
+function exchangeState(header, data, onLoad, onError) {
 	$.ajax({
 		async: true,
 		cache: false,
 		contentType: "text/plain",
+		//currently we do not send the header (appart from that we are compatible to verison in web-view)
+		//data: header + "\n" + serializeValues(data),
 		data: serializeValues(data),
 		error: onError,
 		success: function (data) {
-			if(onLoad)
+			if (onLoad)
 				onLoad(parseValues(data));
 		},
 		timeout: 2000,
@@ -346,14 +348,24 @@ function updateCycle() {
 		stateControl.pullState("offline");
 		
 		$(document).oneTime("0.5s", function () {
-			exchangeState({ }, online, offline);
+			exchangeState("GetSystemInfo", { }, function (data) {
+				$.each(data, function (key, value) {
+					function id(value) {
+						return value;
+					};
+					
+					$("#" + key).text((outputValueHooks[key] || id)(value));
+				});
+				
+				online();
+			}, offline);
 		});
 	}
 	
 	function online() {
 		stateControl.pullState("online");
 		
-		exchangeState(getInputValues($("#options-box")), function (data) {
+		exchangeState("GetImage", { }, function (data) {
 			asynLoadImage("image.bmp?" + data.imgTS, function () {
 				$(this).attr("id", "image");
 				$("#image").replaceWith(this);
@@ -373,13 +385,18 @@ function updateCycle() {
 				offline();
 			});
 			
+			if (data.ImageType != inputValues.ImageType)
+				exchangeState("SetOptions", {
+					ImageType: inputValues.ImageType
+				});
+			
 			if (data.exposureTime != inputValues.exposureTime)
-				exchangeState( {
+				exchangeState("SetOptions", {
 					exposureTime: inputValues.exposureTime
 				});			
 			
 			if (data.Threshold != inputValues.Threshold)
-				exchangeState( {
+				exchangeState("SetOptions", {
 					Threshold: inputValues.Threshold
 				});
 			

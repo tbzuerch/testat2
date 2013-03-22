@@ -16,16 +16,15 @@ enum MainStateEvents {
 	FRAMESEQ_EVT,       /* frame ready to process (before setting up next frame capture) */
 	FRAMEPAR_EVT,       /* frame ready to process (parallel to next capture) */
 	IPC_GET_APP_STATE_EVT, /* Webinterface asks for the current application state. */
-	IPC_GET_THRESHOLD_IMG_EVT, /* Webinterface asks for a color image. */
-	IPC_GET_RAW_IMG_EVT, /* Webinterface asks for a raw image. */
-	IPC_SET_SHOWIMG_MODE_EVT /* Webinterface wants to set whether we capture color or raw images. */
+	IPC_GET_NEW_IMG_EVT, /* Webinterface asks for a new image. */
+	IPC_SET_IMAGE_TYPE_EVT /* Webinterface wants to set the image type. */
 };
 
 
 /*typedef struct MainState MainState;*/
 typedef struct MainState {
 	Hsm super;
-	State showRaw, showThreshold;
+	State showGray, showThreshold, showBackground;
 } MainState;
 
 
