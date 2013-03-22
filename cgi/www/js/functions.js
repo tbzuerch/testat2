@@ -14,7 +14,32 @@ String.prototype.splitLines = function () {
 		list.pop();
 	
 	return list;
-}
+};
+
+// Converts a number to a string with a specified number of digits before and after the dot together.
+Number.prototype.toPrecision2 = function (digits) {
+	var parts = this.toString().split(".");
+	var p1 = parts[0], p2 = parts[1] || "", pp = p1 + p2;
+	var res = p1;
+	
+	while (pp.slice(0, 1) == "0") {
+		digits += 1;
+		pp = pp.slice(1);
+	}
+	
+	if (p1.length < digits) {
+		res += "." + p2;
+		digits += 1; // Because of the dot.
+	}
+	
+	res = res.slice(0, digits);
+	digits = Math.max(digits, p1.length)
+	
+	while (res.length < digits)
+		res += "0";
+	
+	return res;
+};
 
 function getSearchArgs() {
 	var parts = document.location.search.slice(1).split("&");
@@ -56,25 +81,98 @@ function createElement(tag, attrs, contents) {
 }
 
 function buildControls() {
-	$("input([type=checkbox], [type=radio]):parent").each(function () {
-		var id = $(this).attr("name") + "+" + $(this).attr("value");
-		
-		$(this).attr("id", id)
-		$(this).after(createElement("label", { "for" : id }, $(this).contents()));
-		$(this).empty();
-	})
+	var inputs = $(".input:parent")
+	var ws = $(document.createTextNode(" "));
+
+	inputs.filter("[type=checkbox], [type=radio]").each(function () {
+		var name = $(this).attr("name")
+		var value = $(this).attr("value")
+		var id = name + "--" + $(this).attr("value");
+		var label = createElement("label", { "for" : id }, $(this).contents());
+		var elem = createElement("input", {
+			"name" : name,
+			"type" : $(this).attr("type"),
+			"value" : $(this).attr("value"),
+			"id" : id
+		});
+
+		$(this).after(label);
+		$(this).replaceWith(elem);
+
+		label.addClass("label-after");
+		elem.click(function () {
+			var elem = $(this);
+			var type = elem.attr("type");
+			var value;
+
+			if (type == "checkbox")
+				if (elem.length == 1)
+					value = (elem.fieldValue().length != 0).toString();
+				else
+					value = elem.fieldValue().join(" ");
+			else if (type == "radio")
+				value = elem.fieldValue().join(" ");
+			else
+				value = elem.fieldValue()[0];
+
+			inputValues[elem.attr("name")] = value;
+		});
+
+		if (inputValues[name] && $.inArray(value, inputValues[name].split(" ")) != -1)
+			elem.attr("checked", "checked");
+	});
+
+	inputs.filter("[type=slider]").each(function () {
+		var range = $(this).attr("value").split(" ");
+		var value = createElement("span");
+		var label = createElement("span", { }, $(this).contents());
+		var elem = createElement("div", {
+			"class" : $(this).attr("class"),
+			"type" : $(this).attr("type"),
+			"name" : $(this).attr("name")
+		});
+
+		label.addClass("label-before");
+		value.addClass("label-after");
+
+		$(this).before(label);
+		$(this).after(value);
+		$(this).replaceWith(createElement("div", {
+			"style" : "display: inline-block; vertical-align: middle; position: relative; top: -2px"
+		}, elem));
+
+		elem.slider({
+			"animate" : true,
+			"min" : 0,
+			"max" : 1,
+			"step" : 1 / 1000000,
+			"range" : "min",
+			"slide" : function (event, ui) {
+				var a = parseFloat(range[0]), b = parseFloat(range[1]);
+				var x = ui.value;
+
+				if (range[2] == "log")
+					x = Math.exp((x * (Math.log(b) - Math.log(a)) + Math.log(a)));
+				else
+					x = x * (b - a) + a;
+
+				inputValues[$(this).attr("name")] = x.toFixed(0);
+				value.text(x.toPrecision2(2));
+			}
+		});
+	});
 }
 
 // Removes duplicate elements from an array.
 function removeDuplicates(arr) {
 	var newArr = [];
 	var arr = $.makeArray(arr);
-	
+
 	outer: for (var i in arr) {
 		for (var j in newArr)
 			if (newArr[j] == arr[i]) 
 				continue outer;
-		
+
 		newArr.push(arr[i]);
 	}
 	
@@ -138,6 +236,25 @@ function parseValues(data) {
 	return obj;
 }
 
+var outputValueHooks = {
+	colorType: function (value) {
+		if (value == "gray")
+			return "8 bit grayscale";
+		else if (value == "raw")
+			return "8 bit grayscale";
+		else if (value == "debayered")
+			return "8 bit RGB";
+	},
+	imageSensor: function (value) {
+		if (value == "Color")
+			$("#colorType-section").show();
+		else
+			$("#colorType-section").hide();
+		
+		return value;
+	}
+};
+
 function exchangeState(data, onLoad, onError) {
 	$.ajax({
 		async: true,
@@ -146,7 +263,8 @@ function exchangeState(data, onLoad, onError) {
 		data: serializeValues(data),
 		error: onError,
 		success: function (data) {
-			onLoad(parseValues(data));
+			if(onLoad)
+				onLoad(parseValues(data));
 		},
 		timeout: 2000,
 		type: "POST",
@@ -160,6 +278,8 @@ function asynLoadImage(url, onLoad, onError) {
 	img.load(onLoad);
 	img.error(onError);
 	img.attr("src", url /*+ "?dummy=" + (new Date()).getTime()*/);
+	img.attr("height", 480);
+    img.attr("width", 752);
 }
 
 var offBanner = {
@@ -238,12 +358,31 @@ function updateCycle() {
 				$(this).attr("id", "image");
 				$("#image").replaceWith(this);
 				
+				$.each(data, function (key, value) {
+					function id(value) {
+						return value;
+					};
+					
+					$("#" + key).text((outputValueHooks[key] || id)(value));
+				})
+				
 				// Close the loop.
 				online();
 			}, function (event) {
 			//	console.log(event);
 				offline();
 			});
+			
+			if (data.exposureTime != inputValues.exposureTime)
+				exchangeState( {
+					exposureTime: inputValues.exposureTime
+				});			
+			
+			if (data.Threshold != inputValues.Threshold)
+				exchangeState( {
+					Threshold: inputValues.Threshold
+				});
+			
 		}, function (request, status) {
 		//	console.log(status);
 			offline();

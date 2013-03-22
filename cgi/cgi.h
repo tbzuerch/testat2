@@ -52,10 +52,20 @@ struct ARGUMENT
 struct ARGUMENT_DATA
 {
 	/*! @brief True if color images should be returned.*/
-	bool bDoCaptureColor;
+	bool bDoShowThreshold;
 	/*! @brief Says whether the argument bDoDebayering has been
 	 * supplied or not. */
-	bool bDoCaptureColor_supplied;
+	bool bDoShowThreshold_supplied;
+	/*! @Shutter time in micro seconds.*/
+	int nExposureTime;
+	/*! @brief Says whether the argument ExposureTime has been
+	 * supplied or not. */
+	bool bExposureTime_supplied;
+	/*! @brief cut off value for change detection.*/
+	int nThreshold;
+	/*! @brief Says whether the argument threshold has been
+	 * supplied or not. */
+	bool bThreshold_supplied;
 };
 
 /*! @brief Main object structure of the CGI. Contains all 'global'

@@ -19,9 +19,9 @@ const Msg mainStateMsg[] = {
 	{ FRAMESEQ_EVT },
 	{ FRAMEPAR_EVT },
 	{ IPC_GET_APP_STATE_EVT },
-	{ IPC_GET_COLOR_IMG_EVT },
+	{ IPC_GET_THRESHOLD_IMG_EVT },
 	{ IPC_GET_RAW_IMG_EVT },
-	{ IPC_SET_CAPTURE_MODE_EVT }
+	{ IPC_SET_SHOWIMG_MODE_EVT }
 };
 
 /*********************************************************************//*!
@@ -47,6 +47,8 @@ static OSC_ERR HandleIpcRequests(MainState *pMainState)
 {
 	OSC_ERR err;
 	uint32 paramId;
+	struct IPC_DATA *pIpc = &data.ipc;
+	struct OSC_IPC_REQUEST *pReq = &pIpc->req;
 
 	err = CheckIpcRequests(&paramId);
 	if (err == SUCCESS)
@@ -61,7 +63,7 @@ static OSC_ERR HandleIpcRequests(MainState *pMainState)
 			break;
 		case GET_COLOR_IMG:
 			/* Request for the live image. */
-			ThrowEvent(pMainState, IPC_GET_COLOR_IMG_EVT);
+			ThrowEvent(pMainState, IPC_GET_THRESHOLD_IMG_EVT);
 			break;
 		case GET_RAW_IMG:
 			/* Request for the live image. */
@@ -69,7 +71,24 @@ static OSC_ERR HandleIpcRequests(MainState *pMainState)
 			break;
 		case SET_CAPTURE_MODE:
 			/* Set the debayering option. */
-			ThrowEvent(pMainState, IPC_SET_CAPTURE_MODE_EVT);
+			ThrowEvent(pMainState, IPC_SET_SHOWIMG_MODE_EVT);
+			break;
+		case SET_EXPOSURE_TIME:
+			// a new exposure time was given
+			if(data.ipc.state.nExposureTime != *((int*)pReq->pAddr))
+			{
+				data.nExposureTimeChanged = true;
+				data.ipc.state.nExposureTime = *((int*)pReq->pAddr);
+			}
+			data.ipc.enReqState = REQ_STATE_ACK_PENDING;//we return immediately
+			break;
+		case SET_THRESHOLD:
+			// a new exposure time was given
+			if(data.ipc.state.nThreshold != *((int*)pReq->pAddr))
+			{
+				data.ipc.state.nThreshold = *((int*)pReq->pAddr);
+			}
+			data.ipc.enReqState = REQ_STATE_ACK_PENDING;//we return immediately
 			break;
 		default:
 			OscLog(ERROR, "%s: Unkown IPC parameter ID (%d)!\n", __func__, paramId);
@@ -100,15 +119,49 @@ static OSC_ERR HandleIpcRequests(MainState *pMainState)
 
 Msg const *MainState_top(MainState *me, Msg *msg)
 {
+	struct APPLICATION_STATE *pState;
 	switch (msg->evt)
 	{
 	case START_EVT:
-		STATE_START(me, &me->captureRaw);
+		STATE_START(me, &me->showRaw);
+		data.nExposureTimeChanged = true;
+		data.ipc.state.nExposureTime = 25;
+		data.ipc.state.nStepCounter = 0;
+		data.ipc.state.nThreshold = 30;
 		return 0;
-	case IPC_GET_COLOR_IMG_EVT:
-	case IPC_GET_RAW_IMG_EVT:
 	case IPC_GET_APP_STATE_EVT:
-	case IPC_SET_CAPTURE_MODE_EVT:
+		/* Fill in the response and schedule an acknowledge for the request. */
+		pState = (struct APPLICATION_STATE*)data.ipc.req.pAddr;
+		memcpy(pState, &data.ipc.state, sizeof(struct APPLICATION_STATE));
+
+		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
+		return 0;
+	case FRAMESEQ_EVT:
+		/* Timestamp the capture of the image. */
+		data.ipc.state.imageTimeStamp = OscSupCycGet();
+		data.ipc.state.bNewImageReady = TRUE;
+		/* Sleep here for a short while in order not to violate the vertical
+		 * blank time of the camera sensor when triggering a new image
+		 * right after receiving the old one. This can be removed if some
+		 * heavy calculations are done here. */
+		usleep(4000);
+		return 0;
+	case FRAMEPAR_EVT:
+	{
+		/* we have a new image increase counter: here and only here! */
+		data.ipc.state.nStepCounter++;
+		/* debayer the image first -> to half size*/
+		OscVisDebayerGreyscaleHalfSize( data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, ROW_BGBG, data.u8TempImage[GRAYSCALE]);
+		/* Process the image. */
+		if(data.ipc.state.enAppMode == APP_CAPTURE_COLOR)
+			/* the parameter is not really required */
+			ProcessFrame(data.u8TempImage[GRAYSCALE]);
+
+		return 0;
+	}
+	case IPC_GET_THRESHOLD_IMG_EVT:
+	case IPC_GET_RAW_IMG_EVT:
+	case IPC_SET_SHOWIMG_MODE_EVT:
 		/* If the IPC event is not handled in the actual substate, a negative acknowledge is returned by default. */
 		data.ipc.enReqState = REQ_STATE_NACK_PENDING;
 	return 0;
@@ -116,10 +169,9 @@ Msg const *MainState_top(MainState *me, Msg *msg)
 	return msg;
 }
 
-Msg const *MainState_CaptureColor(MainState *me, Msg *msg)
+Msg const *MainState_ShowThreshold(MainState *me, Msg *msg)
 {
-	struct APPLICATION_STATE *pState;
-	bool bCaptureColor;
+	bool bShowThreshold;
 
 	switch (msg->evt)
 	{
@@ -127,45 +179,24 @@ Msg const *MainState_CaptureColor(MainState *me, Msg *msg)
 		data.ipc.state.enAppMode = APP_CAPTURE_COLOR;
 		data.pCurRawImg = data.u8FrameBuffers[0];
 		return 0;
-	case FRAMESEQ_EVT:
-		/* Sleep here for a short while in order not to violate the vertical
-		 * blank time of the camera sensor when triggering a new image
-		 * right after receiving the old one. This can be removed if some
-		 * heavy calculations are done here. */
-		usleep(4000);
-		return 0;
-	case FRAMEPAR_EVT:
-		/* Process the image. */
-		OscVisDebayerGreyscaleHalfSize( data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, ROW_BGBG, data.u8TempImage);
-		ProcessFrame(data.u8TempImage);
-
-		/* Timestamp the capture of the image. */
-		data.ipc.state.imageTimeStamp = OscSupCycGet();
-		data.ipc.state.bNewImageReady = TRUE;
-		return 0;
-	case IPC_GET_APP_STATE_EVT:
-		/* Fill in the response and schedule an acknowledge for the request. */
-		pState = (struct APPLICATION_STATE*)data.ipc.req.pAddr;
-		memcpy(pState, &data.ipc.state, sizeof(struct APPLICATION_STATE));
-
-		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
-		return 0;
-	case IPC_GET_COLOR_IMG_EVT:
+	case IPC_GET_THRESHOLD_IMG_EVT:
+	{
 		/* Write out the image to the address space of the CGI. */
-		memcpy(data.ipc.req.pAddr, data.u8ResultImage, sizeof(data.u8ResultImage));
+		memcpy(data.ipc.req.pAddr, data.u8TempImage[THRESHOLD], sizeof(data.u8TempImage[THRESHOLD]));
 
 		data.ipc.state.bNewImageReady = FALSE;
 
 		/* Mark the request as executed, so it will be acknowledged later. */
 		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
 		return 0;
-	case IPC_SET_CAPTURE_MODE_EVT:
+	}
+	case IPC_SET_SHOWIMG_MODE_EVT:
 		/* Read the option from the address space of the CGI. */
-		bCaptureColor = *((bool*)data.ipc.req.pAddr);
-		if (bCaptureColor == FALSE)
+		bShowThreshold = *((bool*)data.ipc.req.pAddr);
+		if (bShowThreshold == FALSE)
 		{
-			/* Need to capture raw images from now on, this is done in the captureRaw state.  */
-			STATE_TRAN(me, &me->captureRaw);
+			/* Need to capture raw images from now on, this is done in the showRaw state.  */
+			STATE_TRAN(me, &me->showRaw);
 		}
 		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
 		return 0;
@@ -173,10 +204,9 @@ Msg const *MainState_CaptureColor(MainState *me, Msg *msg)
 	return msg;
 }
 
-Msg const *MainState_CaptureRaw(MainState *me, Msg *msg)
+Msg const *MainState_ShowRaw(MainState *me, Msg *msg)
 {
-	struct APPLICATION_STATE *pState;
-	bool bCaptureColor;
+	bool bShowThreshold;
 
 	switch (msg->evt)
 	{
@@ -184,44 +214,24 @@ Msg const *MainState_CaptureRaw(MainState *me, Msg *msg)
 		data.ipc.state.enAppMode = APP_CAPTURE_RAW;
 		data.pCurRawImg = data.u8FrameBuffers[0];
 		return 0;
-	case FRAMESEQ_EVT:
-		/* Timestamp the capture of the image. */
-		data.ipc.state.imageTimeStamp = OscSupCycGet();
-		data.ipc.state.bNewImageReady = TRUE;
-
-		/* Sleep here for a short while in order not to violate the vertical
-		 * blank time of the camera sensor when triggering a new image
-		 * right after receiving the old one. This can be removed if some
-		 * heavy calculations are done here. */
-		usleep(4000);
-
-		return 0;
-	case FRAMEPAR_EVT:
-		return 0;
-	case IPC_GET_APP_STATE_EVT:
-		/* Fill in the response and schedule an acknowledge for the request. */
-		pState = (struct APPLICATION_STATE*)data.ipc.req.pAddr;
-		memcpy(pState, &data.ipc.state, sizeof(struct APPLICATION_STATE));
-
-		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
-		return 0;
 	case IPC_GET_RAW_IMG_EVT:
-		/* Write out the raw image to the address space of the CGI. */
-		OscVisDebayerGreyscaleHalfSize( data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, ROW_BGBG, data.ipc.req.pAddr);
-		//memcpy(data.ipc.req.pAddr, data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH*OSC_CAM_MAX_IMAGE_HEIGHT);
+	{
+		/* Write out the current gray image to the address space of the CGI. */
+		memcpy(data.ipc.req.pAddr, data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
 
 		data.ipc.state.bNewImageReady = FALSE;
 
 		/* Mark the request as executed, so it will be acknowledged later. */
 		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
 		return 0;
-	case IPC_SET_CAPTURE_MODE_EVT:
+	}
+	case IPC_SET_SHOWIMG_MODE_EVT:
 		/* Read the option from the address space of the CGI. */
-		bCaptureColor = *((bool*)data.ipc.req.pAddr);
-		if (bCaptureColor == TRUE)
+		bShowThreshold = *((bool*)data.ipc.req.pAddr);
+		if (bShowThreshold == TRUE)
 		{
-			/* Need to capture colored images from now on, this is done in the captureRaw state.  */
-			STATE_TRAN(me, &me->captureColor);
+			/* Need to capture colored images from now on, this is done in the showRaw state.  */
+			STATE_TRAN(me, &me->showThreshold);
 		}
 		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
 		return 0;
@@ -232,8 +242,8 @@ Msg const *MainState_CaptureRaw(MainState *me, Msg *msg)
 void MainStateConstruct(MainState *me)
 {
 	HsmCtor((Hsm *)me, "MainState", (EvtHndlr)MainState_top);
-	StateCtor(&me->captureRaw, "Capture Raw", &((Hsm *)me)->top, (EvtHndlr)MainState_CaptureRaw);
-	StateCtor(&me->captureColor, "Capture Color", &((Hsm *)me)->top, (EvtHndlr)MainState_CaptureColor);
+	StateCtor(&me->showRaw, "Show Raw", &((Hsm *)me)->top, (EvtHndlr)MainState_ShowRaw);
+	StateCtor(&me->showThreshold, "Show Color", &((Hsm *)me)->top, (EvtHndlr)MainState_ShowThreshold);
 }
 
 OscFunction( StateControl)
@@ -280,6 +290,13 @@ OscFunction( StateControl)
 
 		/* Process frame by state engine. Sequentially with next capture */
 		ThrowEvent(&mainState, FRAMESEQ_EVT);
+
+		/* set new shutter speed */
+		if(data.nExposureTimeChanged)
+		{
+			OscCamSetShutterWidth(data.ipc.state.nExposureTime * 1000);
+			data.nExposureTimeChanged = false;
+		}
 
 		/* Prepare next capture */
 		OscCall( OscCamSetupCapture, OSC_CAM_MULTI_BUFFER);

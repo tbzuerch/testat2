@@ -17,7 +17,9 @@ enum EnIpcParamIds
 	GET_APP_STATE,
 	GET_COLOR_IMG,
 	GET_RAW_IMG,
-	SET_CAPTURE_MODE
+	SET_CAPTURE_MODE,
+	SET_EXPOSURE_TIME,
+	SET_THRESHOLD
 };
 
 /*! @brief The path of the unix domain socket used for IPC between the application and its user interface. */
@@ -53,6 +55,12 @@ struct APPLICATION_STATE
 	uint32 imageTimeStamp;
 	/*! @brief The mode the application is running in. Depending on the mode different information may have to be displayed on the web interface.*/
 	enum EnAppMode enAppMode;
+	/*! @Shutter time in micro seconds.*/
+	int nExposureTime;
+	/*! @brief cut off value for change detection.*/
+	int nThreshold;
+	/* the step counter */
+	unsigned int nStepCounter;
 };
 
 #endif /*TEMPLATE_IPC_H_*/

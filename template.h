@@ -51,17 +51,29 @@ struct IPC_DATA
 	struct APPLICATION_STATE state;
 };
 
+/*! @brief list of images we require for processing; always use these indices
+ * */
+enum IMG_TYPE
+{
+ 	GRAYSCALE,
+ 	THRESHOLD,
+ 	BACKGROUND,
+ 	MAX_NUM_IMG
+};
+
+
 /*! @brief The structure storing all important variables of the application.
  * */
 struct TEMPLATE
 {
 	/*! @brief The frame buffers for the frame capture device driver.*/
 	uint8 u8FrameBuffers[NR_FRAME_BUFFERS][OSC_CAM_MAX_IMAGE_HEIGHT*OSC_CAM_MAX_IMAGE_WIDTH];
-	/*! @brief A buffer to hold the resulting grey image. */
-	uint8 u8ResultImage[OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2];
 	/*! @brief A buffer to hold the temporary image. */
-	uint8 u8TempImage[OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2];
-	
+	uint8 u8TempImage[MAX_NUM_IMG][OSC_CAM_MAX_IMAGE_WIDTH/2*OSC_CAM_MAX_IMAGE_HEIGHT/2];
+	/* indicates that the shutter time changed */
+	bool nExposureTimeChanged;
+	/* the threshold used for processing purposes */
+	int nThreshold;
 	/*! @brief Handle to the framework instance. */
 	void *hFramework;
 	/*! @brief Camera-Scene perspective */
@@ -138,6 +150,6 @@ void IpcSendImage(fract16 *f16Image, uint32 nPixels);
  * 
  * @param pRawImg The raw image to process.
  *//*********************************************************************/
-void ProcessFrame(uint8 *pRawImg);
+void ProcessFrame();
 
 #endif /*TEMPLATE_H_*/
