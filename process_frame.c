@@ -12,42 +12,51 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* min and max not defined in stdlib ? */
+#ifndef max
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#endif
+
 
 void ProcessFrame(uint8 *pInputImg)
 {
 	int c, r;
-	int Shift = 7;
-	short Beta = 2;//the meaning is that in floating point the value of Beta is = 6/(1 << Shift) = 6/128 = 0.0469
+	int nc = OSC_CAM_MAX_IMAGE_WIDTH/2;/* we work only on half of the camera image width */
+	int siz = sizeof(data.u8TempImage[GRAYSCALE]);
 
-	if(data.ipc.state.nStepCounter == 1)
+	/* initialize image to zero (can be skipped if performance is an issue */
+	/* we use 'THRESHOLD' for gradient in x-direction */ 
+	memset(data.u8TempImage[THRESHOLD], 0, siz);
+	for(r = nc; r < siz-nc; r+= nc)/* we skip the first and last line */
 	{
-		/* this is the first time we call this function */
-		/* first time we call this; index 1 always has the background image */
-		memcpy(data.u8TempImage[BACKGROUND], data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
+		for(c = 1; c < nc-1; c++)
+		{	/* do pointer arithmetics with respect to center pixel location */
+			unsigned char* p = &data.u8TempImage[GRAYSCALE][r+c];
+			/* implement Sobel filter (shift by 128 to 'center' grey values */
+			short v = 128   -(short) *(p-nc-1) + (short) *(p-nc+1) 
+					-2* (short) *(p-1) + 2* (short) *(p+1) 
+					-(short) *(p+nc-1) + (short) *(p+nc+1);
+
+			/* apply min()/max() to avoid wrap around of values below 0 and above 255 */
+			data.u8TempImage[THRESHOLD][r+c] = (unsigned char) max(0, min(255, v));
+		}
 	}
-	else
+
+	/* initialize image to zero (can be skipped if performance is an issue */
+	/* we use 'BACKGROUND' for gradient in y-direction */ 	
+	memset(data.u8TempImage[BACKGROUND], 0, siz);
+	for(r = nc; r < siz-nc; r+= nc)/* we skip the first and last line */
 	{
-		/* this is the default case */
-		for(r = 0; r < sizeof(data.u8TempImage[GRAYSCALE]); r+= OSC_CAM_MAX_IMAGE_WIDTH/2)/* we strongly rely on the fact that them images have the same size */
-		{
-			for(c = 0; c < OSC_CAM_MAX_IMAGE_WIDTH/2; c++)
-			{
-				/* first determine the forground estimate */
-				data.u8TempImage[THRESHOLD][r+c] = abs(data.u8TempImage[GRAYSCALE][r+c]-data.u8TempImage[BACKGROUND][r+c]) < data.ipc.state.nThreshold ? 0 : 255;
+		for(c = 1; c < nc-1; c++)
+		{	/* do pointer arithmetics with respect to center pixel location */
+			unsigned char* p = &data.u8TempImage[GRAYSCALE][r+c];
+			/* implement Sobel filter (shift by 128 to 'center' grey values */			
+			short v = 128   - (short) *(p-nc-1) - 2* (short) *(p-nc) - (short) *(p-nc+1)
+					+ (short) *(p+nc-1) + 2* (short) *(p+nc) + (short) *(p+nc+1);
 
-				/* now update the background image; the value of background should be corrected by the following difference (* 1/128) */
-				short Diff = Beta*((short) data.u8TempImage[GRAYSCALE][r+c] - (short) data.u8TempImage[BACKGROUND][r+c]);
-
-				if(abs(Diff) >= 128) //we will have a correction - apply it (this also avoids the "bug" that -1 >> 1 = -1)
-					data.u8TempImage[BACKGROUND][r+c] += (uint8) (Diff >> Shift);
-				else //due to the division by 128 the correction would be zero -> thus add/subtract at least unity
-				{
-					if(Diff > 0 && data.u8TempImage[BACKGROUND][r+c] < 255)
-							data.u8TempImage[BACKGROUND][r+c] += 1;
-					else if(Diff < 0 && data.u8TempImage[BACKGROUND][r+c] > 1)
-							data.u8TempImage[BACKGROUND][r+c] -= 1;
-				}
-			}
+			/* apply min()/max() to avoid wrap around of values below 0 and above 255 */
+			data.u8TempImage[BACKGROUND][r+c] = (unsigned char) max(0, min(255, v));
 		}
 	}
 }
