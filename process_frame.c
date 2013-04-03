@@ -16,6 +16,9 @@
 void ProcessFrame(uint8 *pInputImg)
 {
 	int c, r;
+	int nc = OSC_CAM_MAX_IMAGE_WIDTH/2;
+	int siz = sizeof(data.u8TempImage[GRAYSCALE]);
+
 	int Shift = 7;
 	short Beta = 2;//the meaning is that in floating point the value of Beta is = 6/(1 << Shift) = 6/128 = 0.0469
 
@@ -28,9 +31,9 @@ void ProcessFrame(uint8 *pInputImg)
 	else
 	{
 		/* this is the default case */
-		for(r = 0; r < sizeof(data.u8TempImage[GRAYSCALE]); r+= OSC_CAM_MAX_IMAGE_WIDTH/2)/* we strongly rely on the fact that them images have the same size */
+		for(r = 0; r < siz; r+= nc)/* we strongly rely on the fact that them images have the same size */
 		{
-			for(c = 0; c < OSC_CAM_MAX_IMAGE_WIDTH/2; c++)
+			for(c = 0; c < nc; c++)
 			{
 				/* first determine the forground estimate */
 				data.u8TempImage[THRESHOLD][r+c] = abs(data.u8TempImage[GRAYSCALE][r+c]-data.u8TempImage[BACKGROUND][r+c]) < data.ipc.state.nThreshold ? 0 : 255;
@@ -47,6 +50,28 @@ void ProcessFrame(uint8 *pInputImg)
 					else if(Diff < 0 && data.u8TempImage[BACKGROUND][r+c] > 1)
 							data.u8TempImage[BACKGROUND][r+c] -= 1;
 				}
+			}
+		}
+
+		for(r = nc; r < siz-nc; r+= nc)/* we skip the first and last line */
+		{
+			for(c = 1; c < nc-1; c++)
+			{
+				unsigned char* p = &data.u8TempImage[THRESHOLD][r+c];
+				data.u8TempImage[EROSION][r+c] = *(p-nc-1) & *(p-nc) & *(p-nc+1) &
+												 *(p-1)    & *p      & *(p+1) &
+												 *(p+nc-1) & *(p+nc) & *(p+nc+1);
+			}
+		}
+
+		for(r = nc; r < siz-nc; r+= nc)/* we skip the first and last line */
+		{
+			for(c = 1; c < nc-1; c++)
+			{
+				unsigned char* p = &data.u8TempImage[EROSION][r+c];
+				data.u8TempImage[DILATION][r+c] = *(p-nc-1) | *(p-nc) | *(p-nc+1) |
+												  *(p-1)    | *p      | *(p+1) |
+												  *(p+nc-1) | *(p+nc) | *(p+nc+1);
 			}
 		}
 	}
