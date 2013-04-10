@@ -21,12 +21,15 @@ void ProcessFrame(uint8 *pInputImg)
 
 	int Shift = 7;
 	short Beta = 2;//the meaning is that in floating point the value of Beta is = 6/(1 << Shift) = 6/128 = 0.0469
+	uint8 MaxForeground = 255;
 
 	if(data.ipc.state.nStepCounter == 1)
 	{
 		/* this is the first time we call this function */
 		/* first time we call this; index 1 always has the background image */
 		memcpy(data.u8TempImage[BACKGROUND], data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
+		/* set foreground counter to zero */
+		memset(data.u8TempImage[FGRCOUNTER], 0, sizeof(data.u8TempImage[FGRCOUNTER]));
 	}
 	else
 	{
@@ -38,17 +41,32 @@ void ProcessFrame(uint8 *pInputImg)
 				/* first determine the forground estimate */
 				data.u8TempImage[THRESHOLD][r+c] = abs(data.u8TempImage[GRAYSCALE][r+c]-data.u8TempImage[BACKGROUND][r+c]) < data.ipc.state.nThreshold ? 0 : 255;
 
-				/* now update the background image; the value of background should be corrected by the following difference (* 1/128) */
-				short Diff = Beta*((short) data.u8TempImage[GRAYSCALE][r+c] - (short) data.u8TempImage[BACKGROUND][r+c]);
+				/* now depending on the foreground estimate ... */
+				if(data.u8TempImage[THRESHOLD][r+c]) {
+					/* ... either in case foreground is detected -> do not update the background but increase the foreground counter */
+					if(data.u8TempImage[FGRCOUNTER][r+c] < MaxForeground) {
+						data.u8TempImage[FGRCOUNTER][r+c]++;
+					} else {
+						/* if counter reaches max -> set current image to background */
+						data.u8TempImage[FGRCOUNTER][r+c] = 0;
+						data.u8TempImage[BACKGROUND][r+c] = data.u8TempImage[GRAYSCALE][r+c];
+					}
+				} else {/* ...or in case background is detected -> decrease foreground counter and update background as usual */					
+					if(0 < data.u8TempImage[FGRCOUNTER][r+c]) {
+						data.u8TempImage[FGRCOUNTER][r+c]--;
+					}
+					/* now update the background image; the value of background should be corrected by the following difference (* 1/128) */
+					short Diff = Beta*((short) data.u8TempImage[GRAYSCALE][r+c] - (short) data.u8TempImage[BACKGROUND][r+c]);
 
-				if(abs(Diff) >= 128) //we will have a correction - apply it (this also avoids the "bug" that -1 >> 1 = -1)
-					data.u8TempImage[BACKGROUND][r+c] += (uint8) (Diff >> Shift);
-				else //due to the division by 128 the correction would be zero -> thus add/subtract at least unity
-				{
-					if(Diff > 0 && data.u8TempImage[BACKGROUND][r+c] < 255)
-							data.u8TempImage[BACKGROUND][r+c] += 1;
-					else if(Diff < 0 && data.u8TempImage[BACKGROUND][r+c] > 1)
-							data.u8TempImage[BACKGROUND][r+c] -= 1;
+					if(abs(Diff) >= 128) //we will have a correction - apply it (this also avoids the "bug" that -1 >> 1 = -1)
+						data.u8TempImage[BACKGROUND][r+c] += (uint8) (Diff >> Shift);
+					else //due to the division by 128 the correction would be zero -> thus add/subtract at least unity
+					{
+						if(Diff > 0 && data.u8TempImage[BACKGROUND][r+c] < 255)
+								data.u8TempImage[BACKGROUND][r+c] += 1;
+						else if(Diff < 0 && data.u8TempImage[BACKGROUND][r+c] > 1)
+								data.u8TempImage[BACKGROUND][r+c] -= 1;
+					}
 				}
 			}
 		}
@@ -59,7 +77,7 @@ void ProcessFrame(uint8 *pInputImg)
 			{
 				unsigned char* p = &data.u8TempImage[THRESHOLD][r+c];
 				data.u8TempImage[EROSION][r+c] = *(p-nc-1) & *(p-nc) & *(p-nc+1) &
-												 *(p-1)    & *p      & *(p+1) &
+												 *(p-1)    & *p      & *(p+1)    &
 												 *(p+nc-1) & *(p+nc) & *(p+nc+1);
 			}
 		}
@@ -70,7 +88,7 @@ void ProcessFrame(uint8 *pInputImg)
 			{
 				unsigned char* p = &data.u8TempImage[EROSION][r+c];
 				data.u8TempImage[DILATION][r+c] = *(p-nc-1) | *(p-nc) | *(p-nc+1) |
-												  *(p-1)    | *p      | *(p+1) |
+												  *(p-1)    | *p      | *(p+1)    |
 												  *(p+nc-1) | *(p+nc) | *(p+nc+1);
 			}
 		}
