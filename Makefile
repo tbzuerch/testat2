@@ -63,14 +63,20 @@ LIBS_target := $(LIBS_target).a
 BINARIES := $(addsuffix _host, $(PRODUCTS)) $(addsuffix _target, $(PRODUCTS))
 
 .PHONY: all clean host target install deploy run reconfigure
+
+deployrun: deploy run
+
+
 all: $(BINARIES)
 host target: %: $(addsuffix _%, $(PRODUCTS))
 
+
+
 deploy: $(APP_NAME).app
-	tar c $< | ssh root@$(CONFIG_TARGET_IP) 'rm -rf $< && tar x' || true
+	tar c $< | sshpass -p 'oscar' ssh root@$(CONFIG_TARGET_IP) 'rm -rf $< && tar x' || true
 
 run:
-	ssh root@$(CONFIG_TARGET_IP) /mnt/app/$(APP_NAME).app/run.sh || true
+	sshpass -p 'oscar' ssh root@$(CONFIG_TARGET_IP) /mnt/app/$(APP_NAME).app/run.sh || true
 
 install: cgi/cgi_host
 	cp -RL cgi/www/* /var/www
