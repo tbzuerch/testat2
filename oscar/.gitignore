@@ -1,0 +1,10 @@
+# Ignore generated files
+*~
+build
+documentation
+
+# Ignore files used by the build system
+/lgx
+/.metadata
+/.settings
+/.config
