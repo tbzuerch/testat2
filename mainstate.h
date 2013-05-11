@@ -24,7 +24,7 @@ enum MainStateEvents {
 /*typedef struct MainState MainState;*/
 typedef struct MainState {
 	Hsm super;
-	State showGray, showThreshold, showBackground;
+	State showOtsu, showOtsuThreshold,showManual, showManualThreshold;
 } MainState;
 
 

@@ -131,7 +131,7 @@ Msg const *MainState_top(MainState *me, Msg *msg)
 	{
 	case START_EVT:
 		/* initialize the whole stuff - is this the right place ? */
-		STATE_START(me, &me->showGray);
+		STATE_START(me, &me->showOtsu);
 		data.ipc.state.enAppMode = APP_CAPTURE_ON;
 		data.pCurRawImg = data.u8FrameBuffers[0];
 		data.nExposureTimeChanged = true;
@@ -170,14 +170,17 @@ Msg const *MainState_top(MainState *me, Msg *msg)
 	}
 	case IPC_SET_IMAGE_TYPE_EVT:
 	{
-		if(data.ipc.state.nImageType == GRAYSCALE) {
-			STATE_TRAN(me, &me->showGray);
+		if(data.ipc.state.nImageType == OTSU) {
+			STATE_TRAN(me, &me->showOtsu);
 		}
-		else if(data.ipc.state.nImageType == THRESHOLD) {
-			STATE_TRAN(me, &me->showThreshold);
+		else if(data.ipc.state.nImageType == OTSU_THRESHOLD) {
+			STATE_TRAN(me, &me->showOtsuThreshold);
 		}
-		else if(data.ipc.state.nImageType == BACKGROUND) {
-			STATE_TRAN(me, &me->showBackground);
+		else if(data.ipc.state.nImageType == MANUAL) {
+			STATE_TRAN(me, &me->showManual);
+		}
+		else if(data.ipc.state.nImageType == MANUAL_THRESHOLD) {
+					STATE_TRAN(me, &me->showManualThreshold);
 		}
 		else {
 			data.ipc.enReqState = REQ_STATE_NACK_PENDING;
@@ -193,7 +196,7 @@ Msg const *MainState_top(MainState *me, Msg *msg)
 	return msg;
 }
 
-Msg const *MainState_ShowGray(MainState *me, Msg *msg)
+Msg const *MainState_Otsu(MainState *me, Msg *msg)
 {
 	switch (msg->evt)
 	{
@@ -213,34 +216,53 @@ Msg const *MainState_ShowGray(MainState *me, Msg *msg)
 	return msg;
 }
 
-Msg const *MainState_ShowThreshold(MainState *me, Msg *msg)
-{
-	switch (msg->evt)
-	{
-	case IPC_GET_NEW_IMG_EVT:
-	{
-		/* Write out the image to the address space of the CGI. */
-		memcpy(data.ipc.req.pAddr, data.u8TempImage[BACKGROUND], sizeof(data.u8TempImage[BACKGROUND]));
 
-		data.ipc.state.bNewImageReady = FALSE;
-
-		/* Mark the request as executed, so it will be acknowledged later. */
-		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
-		return 0;
-	}
-
-	}
-	return msg;
-}
-
-Msg const *MainState_ShowBackground(MainState *me, Msg *msg)
+Msg const *MainState_OtsuThreshold(MainState *me, Msg *msg)
 {
 	switch (msg->evt)
 	{
 	case IPC_GET_NEW_IMG_EVT:
 	{
 		/* Write out the current gray image to the address space of the CGI. */
-		memcpy(data.ipc.req.pAddr, data.u8TempImage[DILATION], sizeof(data.u8TempImage[DILATION]));
+		memcpy(data.ipc.req.pAddr, data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
+
+		data.ipc.state.bNewImageReady = FALSE;
+
+		/* Mark the request as executed, so it will be acknowledged later. */
+		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
+		return 0;
+	}
+
+	}
+	return msg;
+}
+Msg const *MainState_Maual(MainState *me, Msg *msg)
+{
+	switch (msg->evt)
+	{
+	case IPC_GET_NEW_IMG_EVT:
+	{
+		/* Write out the current gray image to the address space of the CGI. */
+		memcpy(data.ipc.req.pAddr, data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
+
+		data.ipc.state.bNewImageReady = FALSE;
+
+		/* Mark the request as executed, so it will be acknowledged later. */
+		data.ipc.enReqState = REQ_STATE_ACK_PENDING;
+		return 0;
+	}
+
+	}
+	return msg;
+}
+Msg const *MainState_ManualThreshold(MainState *me, Msg *msg)
+{
+	switch (msg->evt)
+	{
+	case IPC_GET_NEW_IMG_EVT:
+	{
+		/* Write out the current gray image to the address space of the CGI. */
+		memcpy(data.ipc.req.pAddr, data.u8TempImage[MANUAL_THRESHOLD], sizeof(data.u8TempImage[MANUAL_THRESHOLD]));
 
 		data.ipc.state.bNewImageReady = FALSE;
 
@@ -253,12 +275,15 @@ Msg const *MainState_ShowBackground(MainState *me, Msg *msg)
 	return msg;
 }
 
+
 void MainStateConstruct(MainState *me)
 {
 	HsmCtor((Hsm *)me, "MainState", (EvtHndlr)MainState_top);
-	StateCtor(&me->showGray, "Show Gray", &((Hsm *)me)->top, (EvtHndlr)MainState_ShowGray);
-	StateCtor(&me->showThreshold, "Show Threshold", &((Hsm *)me)->top, (EvtHndlr)MainState_ShowThreshold);
-	StateCtor(&me->showBackground, "Show Background", &((Hsm *)me)->top, (EvtHndlr)MainState_ShowBackground);
+	StateCtor(&me->showOtsu, "Show Otsu", &((Hsm *)me)->top, (EvtHndlr)MainState_Otsu);
+	StateCtor(&me->showOtsuThreshold, "Show Otsu threshold", &((Hsm *)me)->top, (EvtHndlr)MainState_OtsuThreshold);
+	StateCtor(&me->showManual, "Show manual", &((Hsm *)me)->top, (EvtHndlr)MainState_Maual);
+	StateCtor(&me->showManualThreshold, "Show manual threshold", &((Hsm *)me)->top, (EvtHndlr)MainState_ManualThreshold);
+
 }
 
 OscFunction( StateControl)

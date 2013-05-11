@@ -21,12 +21,12 @@ void ProcessFrame(uint8 *pInputImg)
 	int siz = sizeof(data.u8TempImage[GRAYSCALE]);
 
 
-	struct OSC_PICTURE Pic1, Pic2;//we require these structures to use Oscar functions
+	struct OSC_PICTURE Pic1,Pic2;//we require these structures to use Oscar functions
 	struct OSC_VIS_REGIONS ImgRegions;//these contain the foreground objects
 
 	if(data.ipc.state.nStepCounter == 1)
 	{
-		memset(data.u8TempImage[FGRCOUNTER], 0, sizeof(data.u8TempImage[FGRCOUNTER]));
+		 //memcpy(data.u8TempImage[MANUAL], data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
 	}
 	else
 	{
@@ -35,24 +35,33 @@ void ProcessFrame(uint8 *pInputImg)
 		{
 			for(c = 0; c < nc; c++)
 			{
-				data.u8TempImage[THRESHOLD][r+c] = (short) (data.u8TempImage[GRAYSCALE][r+c] > data.ipc.state.nThreshold ? 0 : 0xff);
+				data.u8TempImage[MANUAL_THRESHOLD][r+c] = (uint8) (data.u8TempImage[GRAYSCALE][r+c] > data.ipc.state.nThreshold ? 0 : 0xff);
 			}
 		}
 
 
 
-		Pic1.data = data.u8TempImage[THRESHOLD];
+		Pic1.data = data.u8TempImage[MANUAL_THRESHOLD];
 		Pic1.width = nc;
 		Pic1.height = OSC_CAM_MAX_IMAGE_HEIGHT/2;
 		Pic1.type = OSC_PICTURE_GREYSCALE;
-		OscVisGrey2BW(&Pic1, &Pic1, 0x80, false);
+
+		Pic2.data = data.u8TempImage[BW];
+		Pic2.width = nc;
+		Pic2.height = OSC_CAM_MAX_IMAGE_HEIGHT/2;
+		Pic2.type = OSC_PICTURE_GREYSCALE;
+
+		OscVisGrey2BW(&Pic1, &Pic2, 0x80, false);
 
 		//now do region labeling and feature extraction
-		OscVisLabelBinary( &Pic1, &ImgRegions);
+		OscVisLabelBinary( &Pic2, &ImgRegions);
 		OscVisGetRegionProperties( &ImgRegions);
 
 		//OscLog(INFO, "number of objects %d\n", ImgRegions.noOfObjects);
 		//plot bounding boxes both in gray and dilation image
+
+		Pic1.data = data.u8TempImage[MANUAL_THRESHOLD];
+		OscVisDrawBoundingBoxBW( &Pic1, &ImgRegions, 255);
 		Pic1.data = data.u8TempImage[GRAYSCALE];
 		OscVisDrawBoundingBoxBW( &Pic1, &ImgRegions, 255);
 	}
