@@ -11,14 +11,20 @@
 #include "template.h"
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
+
+uint32 Hist[256];
+uint8 getOtsuK(void);
+
 
 OSC_ERR OscVisDrawBoundingBoxBW(struct OSC_PICTURE *picIn, struct OSC_VIS_REGIONS *regions, uint8 Color);
 
-void ProcessFrame(uint8 *pInputImg)
+void ProcessFrame(uint8 *pInputImg, uint8 isManual)
 {
 	int c, r;
 	int nc = OSC_CAM_MAX_IMAGE_WIDTH/2;
 	int siz = sizeof(data.u8TempImage[GRAYSCALE]);
+	uint8 k;
 
 
 	struct OSC_PICTURE Pic1,Pic2;//we require these structures to use Oscar functions
@@ -30,12 +36,18 @@ void ProcessFrame(uint8 *pInputImg)
 	}
 	else
 	{
+		if(isManual){
+			k=data.ipc.state.nThreshold;
+		}
+		else{
+			k=getOtsuK();
+		}
 		/* this is the default case */
 		for(r = 0; r < siz; r+= nc)/* we strongly rely on the fact that them images have the same size */
 		{
 			for(c = 0; c < nc; c++)
 			{
-				data.u8TempImage[MANUAL_THRESHOLD][r+c] = (uint8) (data.u8TempImage[GRAYSCALE][r+c] > data.ipc.state.nThreshold ? 0 : 0xff);
+				data.u8TempImage[MANUAL_THRESHOLD][r+c] = (uint8) (data.u8TempImage[GRAYSCALE][r+c] > k ? 0 : 0xff);
 			}
 		}
 
@@ -94,4 +106,42 @@ OSC_ERR OscVisDrawBoundingBoxBW(struct OSC_PICTURE *picIn, struct OSC_VIS_REGION
 	 return SUCCESS;
 }
 
+uint8 getOtsuK(void){
+
+		int i,k;
+		int siz = sizeof(data.u8TempImage[GRAYSCALE]);
+		uint32 Hist[256], w0, w1, m0, m1;
+		uint32 sb_max,sb;
+		uint8* p= data.u8TempImage[GRAYSCALE];
+		sb_max=0;
+
+		memset(Hist, 0, sizeof(Hist));
+
+
+		for(i = 0; i < siz; i++){
+			Hist[p[i]]++;
+		}
+
+		for(k=0;k<256;k++){
+			w0=w1=m0=m1=0;
+
+			for(i=0;i<k;i++){
+				m0 += Hist[i]*i;
+				w0 += Hist[i];
+			}
+
+
+			for(i=k;i<256;i++){
+				m1 += Hist[i]*i;
+				w1 += Hist[i];
+			}
+			sb=(w0*w1)*pow(((float)m0/w0)-((float)m1/w1),2);
+			if(sb>sb_max)
+				sb_max=sb;
+		}
+		sb_max=sb_max/(((uint32)376*240)*(376*240));
+		OscLog(INFO, "sb %d\n", (sb_max));
+		return 30;
+
+}
 

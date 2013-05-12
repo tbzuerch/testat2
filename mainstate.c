@@ -164,7 +164,11 @@ Msg const *MainState_top(MainState *me, Msg *msg)
 		OscVisDebayerGreyscaleHalfSize( data.pCurRawImg, OSC_CAM_MAX_IMAGE_WIDTH, OSC_CAM_MAX_IMAGE_HEIGHT, ROW_BGBG, data.u8TempImage[GRAYSCALE]);
 		/* Process the image. */
 		/* the parameter is not really required */
-		ProcessFrame(data.u8TempImage[GRAYSCALE]);
+
+		if(data.ipc.state.nImageType == OTSU || data.ipc.state.nImageType == OTSU_THRESHOLD)
+			ProcessFrame(data.u8TempImage[GRAYSCALE], false);
+		else
+			ProcessFrame(data.u8TempImage[GRAYSCALE], true);
 
 		return 0;
 	}

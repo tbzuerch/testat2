@@ -153,6 +153,6 @@ void IpcSendImage(fract16 *f16Image, uint32 nPixels);
  * 
  * @param pRawImg The raw image to process.
  *//*********************************************************************/
-void ProcessFrame();
+void ProcessFrame(uint8 *pInputImg, uint8 isManual);
 
 #endif /*TEMPLATE_H_*/
