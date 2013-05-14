@@ -111,9 +111,11 @@ uint8 getOtsuK(void){
 		int i,k;
 		int siz = sizeof(data.u8TempImage[GRAYSCALE]);
 		uint32 Hist[256], w0, w1, m0, m1;
-		uint32 sb_max,sb;
+		double sb_max,sb;
+		int k_max;
 		uint8* p= data.u8TempImage[GRAYSCALE];
 		sb_max=0;
+		k_max=0;
 
 		memset(Hist, 0, sizeof(Hist));
 
@@ -135,13 +137,16 @@ uint8 getOtsuK(void){
 				m1 += Hist[i]*i;
 				w1 += Hist[i];
 			}
-			sb=(w0*w1)*pow(((float)m0/w0)-((float)m1/w1),2);
-			if(sb>sb_max)
+			//sb=(uint32)((double)w0*w1)*pow(((double)m0/w0)-((double)m1/w1),2);
+			  sb=w0*w1*(m0/(float)w0 -m1/(float)w1)*(m0/(float)w0 -m1/(float)w1);
+			if(sb>sb_max){
 				sb_max=sb;
+				k_max=k;
+			}
 		}
 		sb_max=sb_max/(((uint32)376*240)*(376*240));
-		OscLog(INFO, "sb %d\n", (sb_max));
-		return 30;
+		//OscLog(INFO, "k %d\n", (k_max));
+		return k_max;
 
 }
 

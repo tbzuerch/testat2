@@ -228,7 +228,7 @@ Msg const *MainState_OtsuThreshold(MainState *me, Msg *msg)
 	case IPC_GET_NEW_IMG_EVT:
 	{
 		/* Write out the current gray image to the address space of the CGI. */
-		memcpy(data.ipc.req.pAddr, data.u8TempImage[GRAYSCALE], sizeof(data.u8TempImage[GRAYSCALE]));
+		memcpy(data.ipc.req.pAddr, data.u8TempImage[MANUAL_THRESHOLD], sizeof(data.u8TempImage[MANUAL_THRESHOLD]));
 
 		data.ipc.state.bNewImageReady = FALSE;
 

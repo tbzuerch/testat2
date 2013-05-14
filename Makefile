@@ -132,3 +132,6 @@ gdbserver-kill:
 # Cleans the module.
 clean:
 	rm -rf build *.gdb $(BINARIES) $(APP_NAME).app cgi/cgi_target.gdb
+
+push:
+	export GIT_SSL_NO_VERIFY=1 && git push -u origin testat02
